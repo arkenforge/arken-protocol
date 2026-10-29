@@ -7,8 +7,16 @@ const os = require('os');
 const BUF_SIZE = 65536; // 64 KB — plenty for any auth JSON response
 
 function getLibPath() {
+    // Try prebuilt platform package first (no Rust required)
+    const pkgName = `arken-auth-${os.platform()}-${os.arch()}`;
+    try {
+        return require(pkgName);
+    } catch (_) {}
+
+    // Fall back to locally built binary (npm run build-local)
     const ext = { win32: '.dll', darwin: '.dylib' }[os.platform()] ?? '.so';
-    return path.join(__dirname, '..', 'bin', `libarken_core${ext}`);
+    const prefix = os.platform() === 'win32' ? '' : 'lib';
+    return path.join(__dirname, '..', 'bin', `${prefix}arken_core${ext}`);
 }
 
 class ArkenCore {

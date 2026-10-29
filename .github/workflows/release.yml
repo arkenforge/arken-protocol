@@ -1,0 +1,123 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  # ── Build native binaries for all platforms ────────────────────────────────
+  build-binaries:
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux-x64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            binary: libarken_core.so
+
+          - platform: linux-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            binary: libarken_core.so
+            use-cross: true
+
+          - platform: darwin-x64
+            os: macos-latest
+            target: x86_64-apple-darwin
+            binary: libarken_core.dylib
+
+          - platform: darwin-arm64
+            os: macos-latest
+            target: aarch64-apple-darwin
+            binary: libarken_core.dylib
+
+          - platform: win32-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            binary: arken_core.dll
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install cross (Linux ARM64)
+        if: matrix.use-cross
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      - name: Build (cross)
+        if: matrix.use-cross
+        run: cross build --release --target ${{ matrix.target }}
+        working-directory: packages/arken-auth/rust
+
+      - name: Build (native)
+        if: '!matrix.use-cross'
+        run: cargo build --release --target ${{ matrix.target }}
+        working-directory: packages/arken-auth/rust
+
+      - name: Copy binary into platform package
+        shell: bash
+        run: |
+          mkdir -p packages/arken-auth-${{ matrix.platform }}/bin
+          cp packages/arken-auth/rust/target/${{ matrix.target }}/release/${{ matrix.binary }} \
+             packages/arken-auth-${{ matrix.platform }}/bin/
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.platform }}
+          path: packages/arken-auth-${{ matrix.platform }}/bin/
+          retention-days: 1
+
+  # ── Publish all packages to npm ───────────────────────────────────────────
+  publish:
+    name: Publish to npm
+    needs: build-binaries
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: artifacts/
+
+      - name: Place binaries into platform packages
+        run: |
+          for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
+            mkdir -p packages/arken-auth-${platform}/bin
+            cp artifacts/binary-${platform}/* packages/arken-auth-${platform}/bin/
+          done
+
+      - name: Publish platform packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
+            cd packages/arken-auth-${platform}
+            npm publish --access public
+            cd ../..
+          done
+
+      - name: Publish main package
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          cd packages/arken-auth
+          npm publish --access public
