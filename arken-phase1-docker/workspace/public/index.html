@@ -494,7 +494,7 @@ function showFailure(msg) {
 }
 
 // ── Waitlist ──────────────────────────────────────────────────────────────────
-const WAITLIST_ENDPOINT = ''; // Set to your Cloudflare Worker / Formspree / etc.
+const WAITLIST_ENDPOINT = 'https://tally.so/r/kbbjWR';
 
 async function joinWaitlist() {
     const input = document.getElementById('wl-email');
@@ -509,15 +509,15 @@ async function joinWaitlist() {
     btn.disabled = true;
     btn.textContent = 'Joining…';
 
-    if (WAITLIST_ENDPOINT) {
-        try {
-            await fetch(WAITLIST_ENDPOINT, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email }),
-            });
-        } catch (_) {}
-    }
+    try {
+        const body = new URLSearchParams({ email });
+        await fetch(WAITLIST_ENDPOINT, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+            mode: 'no-cors',
+        });
+    } catch (_) {}
 
     // Always show thanks regardless (endpoint may be empty during local dev)
     input.style.display = 'none';
