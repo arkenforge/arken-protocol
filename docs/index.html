@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Arken Auth — Stop storing secrets you don't need</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0d0d;
+      --surface:  #141414;
+      --border:   #242424;
+      --muted:    #555;
+      --text:     #e8e8e8;
+      --subtle:   #888;
+      --accent:   #7c6cfc;
+      --accent2:  #56cfb2;
+      --red:      #f56565;
+      --green:    #68d391;
+      --code-bg:  #111;
+      --radius:   8px;
+      --font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(13,13,13,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { font-weight: 700; font-size: 1rem; color: var(--text); letter-spacing: -.01em; }
+    .nav-logo span { color: var(--accent); }
+    .nav-links { display: flex; gap: 1.5rem; font-size: 0.875rem; color: var(--subtle); }
+    .nav-links a { color: var(--subtle); }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    .nav-cta {
+      background: var(--accent); color: #fff; padding: .4rem .9rem;
+      border-radius: 6px; font-size: .875rem; font-weight: 500;
+    }
+    .nav-cta:hover { opacity: .9; text-decoration: none; }
+
+    /* ── Layout ── */
+    .container { max-width: 960px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ── Hero ── */
+    .hero {
+      padding: 7rem 2rem 5rem;
+      text-align: center;
+      max-width: 760px;
+      margin: 0 auto;
+    }
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: .4rem;
+      background: rgba(124,108,252,.12); color: var(--accent);
+      border: 1px solid rgba(124,108,252,.25);
+      padding: .3rem .75rem; border-radius: 20px;
+      font-size: .8rem; font-weight: 600; letter-spacing: .04em;
+      text-transform: uppercase; margin-bottom: 1.5rem;
+    }
+    h1 {
+      font-size: clamp(2rem, 5vw, 3.25rem);
+      font-weight: 800; line-height: 1.1;
+      letter-spacing: -.03em;
+      margin-bottom: 1.25rem;
+    }
+    .hero p {
+      font-size: 1.125rem; color: var(--subtle); max-width: 540px;
+      margin: 0 auto 2.5rem;
+    }
+    .hero-actions { display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap; }
+    .btn-primary {
+      background: var(--accent); color: #fff;
+      padding: .7rem 1.5rem; border-radius: var(--radius);
+      font-size: .95rem; font-weight: 600;
+    }
+    .btn-primary:hover { opacity: .9; text-decoration: none; }
+    .btn-secondary {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border);
+      padding: .7rem 1.5rem; border-radius: var(--radius);
+      font-size: .95rem;
+    }
+    .btn-secondary:hover { border-color: var(--muted); text-decoration: none; }
+
+    /* ── Code hero ── */
+    .code-hero {
+      max-width: 680px; margin: 4rem auto 0;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    .code-header {
+      display: flex; align-items: center; gap: .5rem;
+      padding: .65rem 1rem; background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .dot-r { background: #ff5f57; }
+    .dot-y { background: #ffbd2e; }
+    .dot-g { background: #28c840; }
+    .code-label { margin-left: auto; font-size: .75rem; color: var(--muted); font-family: var(--font-mono); }
+    pre {
+      padding: 1.25rem 1.5rem;
+      font-family: var(--font-mono);
+      font-size: .875rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      color: var(--text);
+    }
+    .kw  { color: #c678dd; }
+    .fn  { color: #61afef; }
+    .str { color: #98c379; }
+    .cm  { color: var(--muted); font-style: italic; }
+    .hl  { background: rgba(124,108,252,.08); display: block; margin: 0 -1.5rem; padding: 0 1.5rem; }
+
+    /* ── Section ── */
+    section { padding: 5rem 0; }
+    section + section { border-top: 1px solid var(--border); }
+    .section-label {
+      font-size: .8rem; font-weight: 700; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 1rem;
+    }
+    h2 { font-size: clamp(1.5rem, 3vw, 2rem); font-weight: 700; letter-spacing: -.02em; margin-bottom: .75rem; }
+    .section-sub { color: var(--subtle); max-width: 540px; margin-bottom: 2.5rem; }
+
+    /* ── Split (code + prose) ── */
+    .split { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: start; }
+    @media (max-width: 720px) { .split { grid-template-columns: 1fr; } }
+
+    /* ── Compare table ── */
+    .compare {
+      width: 100%; border-collapse: collapse;
+      font-size: .9rem;
+    }
+    .compare th {
+      text-align: left; padding: .75rem 1rem;
+      background: var(--surface); color: var(--subtle);
+      font-weight: 600; font-size: .8rem; letter-spacing: .04em; text-transform: uppercase;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare td {
+      padding: .85rem 1rem; border-bottom: 1px solid var(--border);
+    }
+    .compare tr:last-child td { border-bottom: none; }
+    .compare td:first-child { color: var(--subtle); }
+    .yes { color: var(--green); font-weight: 600; }
+    .no  { color: var(--red);   }
+
+    /* ── Install strip ── */
+    .install-strip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem 2.5rem;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 2rem; flex-wrap: wrap;
+    }
+    .install-strip h3 { font-size: 1.1rem; margin-bottom: .25rem; }
+    .install-strip p  { color: var(--subtle); font-size: .9rem; }
+    .install-commands { display: flex; flex-direction: column; gap: .5rem; }
+    .install-cmd {
+      display: flex; align-items: center; gap: .75rem;
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: .5rem 1rem;
+      font-family: var(--font-mono); font-size: .875rem;
+    }
+    .install-cmd .prompt { color: var(--muted); }
+    .install-cmd .cmd    { color: var(--accent2); }
+
+    /* ── Features grid ── */
+    .features { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem; }
+    .feature {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 1.5rem;
+    }
+    .feature-icon { font-size: 1.5rem; margin-bottom: .75rem; }
+    .feature h3 { font-size: 1rem; margin-bottom: .4rem; }
+    .feature p  { font-size: .875rem; color: var(--subtle); }
+
+    /* ── Quickstart steps ── */
+    .steps { counter-reset: step; display: flex; flex-direction: column; gap: 2rem; }
+    .step  { display: flex; gap: 1.5rem; }
+    .step::before {
+      counter-increment: step;
+      content: counter(step);
+      min-width: 2rem; height: 2rem;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(124,108,252,.15); color: var(--accent);
+      border-radius: 50%; font-weight: 700; font-size: .875rem;
+      flex-shrink: 0; margin-top: .2rem;
+    }
+    .step-body h3 { font-size: 1rem; margin-bottom: .4rem; }
+    .step-body p  { font-size: .9rem; color: var(--subtle); }
+    .step-body .code-block {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: .75rem 1rem; margin-top: .75rem;
+      font-family: var(--font-mono); font-size: .8rem; color: var(--text);
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2.5rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: .85rem;
+    }
+    footer a { color: var(--muted); }
+    footer a:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- ── Nav ── -->
+<nav>
+  <div class="nav-logo">Arken<span>Auth</span></div>
+  <div class="nav-links">
+    <a href="#quickstart">Quickstart</a>
+    <a href="#how-it-works">How it works</a>
+    <a href="https://github.com/arken-protocol">GitHub</a>
+  </div>
+  <a class="nav-cta" href="#quickstart">Get started</a>
+</nav>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <div class="hero-badge">a401 Protocol</div>
+  <h1>Stop storing secrets<br>you don't need</h1>
+  <p>Drop-in authentication middleware for Express and FastAPI. No passwords. No sessions. Nothing to breach.</p>
+  <div class="hero-actions">
+    <a class="btn-primary" href="#quickstart">Get started</a>
+    <a class="btn-secondary" href="https://github.com/arken-protocol">View on GitHub</a>
+  </div>
+
+  <div class="code-hero">
+    <div class="code-header">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span class="code-label">server.js</span>
+    </div>
+    <pre><span class="kw">const</span> { <span class="fn">arkenAuth</span> } = <span class="fn">require</span>(<span class="str">'arken-auth'</span>);
+
+<span class="cm">// One line. That's your entire auth layer.</span>
+<span class="hl">app.<span class="fn">get</span>(<span class="str">'/api/orders'</span>, <span class="fn">arkenAuth</span>(), (req, res) => {
+  res.<span class="fn">json</span>({ user: req.user.did, orders: <span class="fn">getOrders</span>(req.user.did) });
+});</span></pre>
+  </div>
+</div>
+
+<!-- ── Features ── -->
+<section>
+  <div class="container">
+    <div class="section-label">Why Arken Auth</div>
+    <h2>Your server stores nothing sensitive</h2>
+    <p class="section-sub">Traditional auth makes you responsible for secrets. Arken flips the model — users hold their keys, you verify proofs.</p>
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🔑</div>
+        <h3>No passwords</h3>
+        <p>Users authenticate with a cryptographic signature. There's no password to store, hash, or reset.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">♻️</div>
+        <h3>No sessions</h3>
+        <p>Every request is independently verifiable. No JWT refresh cycles, no session store, no expiry headaches.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🛡️</div>
+        <h3>Nothing to breach</h3>
+        <p>A stolen database of DID strings is a contact list. There are no hashed passwords, no tokens to rotate.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <h3>Drop-in middleware</h3>
+        <p>One function call protects a route. No configuration, no app registration, no OAuth dance.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">🌐</div>
+        <h3>No third-party dependency</h3>
+        <p>No "Sign in with Google." Your auth doesn't break when another company changes their API.</p>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📦</div>
+        <h3>GDPR-friendly by default</h3>
+        <p>You never hold PII you didn't ask for. No consent flows for data you don't store.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Compare ── -->
+<section>
+  <div class="container">
+    <div class="section-label">Comparison</div>
+    <h2>What you don't have to build</h2>
+    <p class="section-sub">Every row in this table is code you'd write with traditional auth. With Arken, you skip it.</p>
+    <table class="compare">
+      <thead>
+        <tr>
+          <th>Problem</th>
+          <th>Traditional auth</th>
+          <th>Arken a401</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Password storage</td>
+          <td class="no">bcrypt, argon2, salting</td>
+          <td class="yes">Nothing to store</td>
+        </tr>
+        <tr>
+          <td>Password reset flow</td>
+          <td class="no">Email tokens, expiry, UI</td>
+          <td class="yes">No password exists</td>
+        </tr>
+        <tr>
+          <td>Session management</td>
+          <td class="no">JWT, cookies, refresh tokens</td>
+          <td class="yes">Stateless by design</td>
+        </tr>
+        <tr>
+          <td>OAuth setup</td>
+          <td class="no">App registration, callbacks</td>
+          <td class="yes">Not needed</td>
+        </tr>
+        <tr>
+          <td>Breach response</td>
+          <td class="no">Rotate all passwords, notify users</td>
+          <td class="yes">Nothing was stored</td>
+        </tr>
+        <tr>
+          <td>GDPR deletion requests</td>
+          <td class="no">Delete user records, audit trail</td>
+          <td class="yes">No PII to delete</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ── How it works ── -->
+<section id="how-it-works">
+  <div class="container">
+    <div class="split">
+      <div>
+        <div class="section-label">How it works</div>
+        <h2>Challenge-response, cryptographically</h2>
+        <p class="section-sub">The server issues a random nonce. The client signs it with their private key. The server verifies the signature. No shared secret ever exists.</p>
+        <p style="color:var(--subtle);font-size:.9rem;margin-top:1rem;">The private key never leaves the user's device. Your server sees a DID (a public identifier) and a signature. If the signature matches the DID's public key, the user is authenticated.</p>
+      </div>
+      <div>
+        <div class="code-hero" style="margin:0;">
+          <div class="code-header">
+            <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+            <span class="code-label">flow</span>
+          </div>
+          <pre style="font-size:.8rem;line-height:1.9;"><span class="cm">→ GET /protected</span>
+
+<span class="cm">← 401 + { challenge: { nonce: "a7b3..." } }</span>
+
+<span class="cm">  client signs nonce with private key</span>
+
+<span class="cm">→ GET /protected</span>
+<span class="cm">  Authorization: Signature</span>
+<span class="cm">    did="did:key:z...",</span>
+<span class="cm">    nonce="a7b3...",</span>
+<span class="cm">    signature="0x9f2..."</span>
+
+<span class="cm">  server recovers signer from signature</span>
+<span class="cm">  checks: recovered address == DID key?</span>
+
+<span class="cm">← 200 OK</span></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Quickstart ── -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-label">Quickstart</div>
+    <h2>From zero to protected in 5 minutes</h2>
+    <p class="section-sub">You need Node.js and Rust installed. Rust is used to compile the cryptographic core — you don't write any Rust.</p>
+
+    <div class="steps">
+      <div class="step">
+        <div class="step-body">
+          <h3>Install Rust (if you don't have it)</h3>
+          <p>One command. Takes about 2 minutes.</p>
+          <div class="code-block"><span style="color:var(--muted)">$</span> curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-body">
+          <h3>Install arken-auth</h3>
+          <p>The postinstall script compiles the Rust core for your platform automatically.</p>
+          <div class="code-block"><span style="color:var(--muted)">$</span> npm install arken-auth</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-body">
+          <h3>Protect a route</h3>
+          <p>Add one middleware call. That's it.</p>
+          <div class="code-block">
+const express = require('express');<br>
+const { arkenAuth } = require('arken-auth');<br>
+<br>
+const app = express();<br>
+<br>
+app.get('/orders', arkenAuth(), (req, res) => {<br>
+&nbsp;&nbsp;res.json({ user: req.user.did });<br>
+});</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-body">
+          <h3>Authenticate from the client</h3>
+          <p>Any wallet that can sign an Ethereum message works. Here's a minimal example with ethers.js.</p>
+          <div class="code-block">
+const { ethers } = require('ethers');<br>
+const bs58 = require('bs58');<br>
+<br>
+<span style="color:var(--muted)">// 1. Generate a DID from any wallet</span><br>
+const wallet = ethers.Wallet.createRandom();<br>
+const key = new ethers.utils.SigningKey(wallet.privateKey);<br>
+const bytes = Buffer.concat([<br>
+&nbsp;&nbsp;Buffer.from([0xe7, 0x01]),<br>
+&nbsp;&nbsp;Buffer.from(key.compressedPublicKey.slice(2), 'hex')<br>
+]);<br>
+const did = `did:key:z${bs58.encode(bytes)}`;<br>
+<br>
+<span style="color:var(--muted)">// 2. Get challenge, sign nonce, send</span><br>
+const { challenge } = await (await fetch('/orders')).json();<br>
+const sig = await wallet.signMessage(<br>
+&nbsp;&nbsp;ethers.utils.toUtf8Bytes(challenge.nonce)<br>
+);<br>
+const res = await fetch('/orders', {<br>
+&nbsp;&nbsp;headers: {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;Authorization: `Signature did="${did}",nonce="${challenge.nonce}",signature="${sig}"`<br>
+&nbsp;&nbsp;}<br>
+});</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Install strip ── -->
+<section>
+  <div class="container">
+    <div class="install-strip">
+      <div>
+        <h3>Ready to ship?</h3>
+        <p>Node.js and Python. Same Rust core. Same security.</p>
+      </div>
+      <div class="install-commands">
+        <div class="install-cmd">
+          <span class="prompt">$</span>
+          <span class="cmd">npm install arken-auth</span>
+        </div>
+        <div class="install-cmd">
+          <span class="prompt">$</span>
+          <span class="cmd">pip install arken-auth</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <p>Arken Protocol &mdash; <a href="https://github.com/arken-protocol">GitHub</a> &mdash; MIT License</p>
+  <p style="margin-top:.5rem;font-size:.8rem;">The cryptographic core is written in Rust. The auth logic never runs in JavaScript.</p>
+</footer>
+
+</body>
+</html>

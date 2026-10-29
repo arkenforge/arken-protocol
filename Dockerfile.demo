@@ -1,0 +1,34 @@
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    curl build-essential pkg-config libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Node.js 20
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy and build Rust core
+COPY arken-phase1-docker/workspace/rust-core ./rust-core
+RUN cd rust-core && cargo build --release
+
+# Copy Node.js server
+COPY arken-phase1-docker/workspace/node-wrapper ./node-wrapper
+RUN cd node-wrapper && npm install --omit=dev
+
+# Copy demo UI
+COPY arken-phase1-docker/workspace/public ./public
+
+EXPOSE 8080
+
+ENV PORT=8080
+
+CMD ["node", "node-wrapper/test-server.js"]
