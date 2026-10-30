@@ -3,17 +3,20 @@
 const koffi = require('koffi');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 
-const BUF_SIZE = 65536; // 64 KB — plenty for any auth JSON response
+const BUF_SIZE = 65536;
+
+// ---------------------------------------------------------------------------
+// Native library loader
+// ---------------------------------------------------------------------------
 
 function getLibPath() {
-    // Try prebuilt platform package first (no Rust required)
     const pkgName = `arken-auth-${os.platform()}-${os.arch()}`;
     try {
         return require(pkgName);
     } catch (_) {}
 
-    // Fall back to locally built binary (npm run build-local)
     const ext = { win32: '.dll', darwin: '.dylib' }[os.platform()] ?? '.so';
     const prefix = os.platform() === 'win32' ? '' : 'lib';
     return path.join(__dirname, '..', 'bin', `${prefix}arken_core${ext}`);
@@ -24,12 +27,13 @@ class ArkenCore {
         const libPath = getLibPath();
         try {
             const lib = koffi.load(libPath);
-            this._generate = lib.func('int generate_challenge_into(const char *statement, char *out, int cap)');
-            this._verify   = lib.func('int verify_request_into(const char *header, char *out, int cap)');
+            this._generate    = lib.func('int generate_challenge_into(const char *statement, char *out, int cap)');
+            this._verify      = lib.func('int verify_request_into(const char *header, char *out, int cap)');
+            this._verifySigOnly = lib.func('int verify_signature_only_into(const char *header, char *out, int cap)');
         } catch (err) {
             throw new Error(
                 `arken-auth: could not load native library at ${libPath}.\n` +
-                `Run 'cargo build --release' in the rust-core directory.\n` +
+                `Run 'cargo build --release' in the rust/ directory.\n` +
                 `Requires Rust: https://rustup.rs\n\nOriginal error: ${err.message}`
             );
         }
@@ -49,6 +53,12 @@ class ArkenCore {
     verifyRequest(authHeader) {
         return this._call(this._verify, authHeader);
     }
+
+    // Crypto-only verification — nonce not checked against internal store.
+    // Node.js manages nonce lifecycle (MemoryNonceStore or RedisNonceStore).
+    verifySignatureOnly(authHeader) {
+        return this._call(this._verifySigOnly, authHeader);
+    }
 }
 
 let _core = null;
@@ -57,16 +67,73 @@ function getCore() {
     return _core;
 }
 
-function arkenAuth(options = {}) {
-    const { statement } = options;
+// ---------------------------------------------------------------------------
+// Nonce stores
+// ---------------------------------------------------------------------------
 
-    return (req, res, next) => {
+const NONCE_TTL_MS = 60_000;
+
+class MemoryNonceStore {
+    constructor() {
+        this._store = new Map();
+        // Sweep expired nonces every 30 seconds
+        this._sweep = setInterval(() => {
+            const now = Date.now();
+            for (const [nonce, exp] of this._store) {
+                if (exp < now) this._store.delete(nonce);
+            }
+        }, 30_000).unref();
+    }
+
+    async set(nonce) {
+        this._store.set(nonce, Date.now() + NONCE_TTL_MS);
+    }
+
+    async consume(nonce) {
+        const exp = this._store.get(nonce);
+        if (!exp) return false;
+        this._store.delete(nonce);
+        return exp > Date.now();
+    }
+}
+
+class RedisNonceStore {
+    constructor(client, ttlSeconds = 60) {
+        this._client = client;
+        this._ttl = ttlSeconds;
+    }
+
+    async set(nonce) {
+        await this._client.set(`arken:nonce:${nonce}`, '1', { EX: this._ttl });
+    }
+
+    async consume(nonce) {
+        const key = `arken:nonce:${nonce}`;
+        const val = await this._client.get(key);
+        if (!val) return false;
+        await this._client.del(key);
+        return true;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Middleware
+// ---------------------------------------------------------------------------
+
+const _defaultStore = new MemoryNonceStore();
+
+function arkenAuth(options = {}) {
+    const { statement, store = _defaultStore } = options;
+
+    return async (req, res, next) => {
         const authHeader = req.headers.authorization;
 
         if (!authHeader || !authHeader.startsWith('Signature ')) {
             try {
-                const challenge = getCore().generateChallenge(statement);
-                return res.status(401).json(challenge);
+                const nonce = crypto.randomBytes(16).toString('hex');
+                await store.set(nonce);
+                const stmt = statement || 'Sign this message to prove you control this DID.';
+                return res.status(401).json({ challenge: { nonce, statement: stmt } });
             } catch (err) {
                 console.error('[arken-auth] challenge error:', err.message);
                 return res.status(500).json({ error: 'Could not generate challenge' });
@@ -74,12 +141,21 @@ function arkenAuth(options = {}) {
         }
 
         try {
-            const result = getCore().verifyRequest(authHeader);
-            if (result.status === 'success') {
-                req.user = { did: result.did };
-                return next();
+            // Crypto verification (no internal nonce check)
+            const result = getCore().verifySignatureOnly(authHeader);
+
+            if (result.status !== 'success') {
+                return res.status(401).json({ error: result.message });
             }
-            return res.status(401).json({ error: result.message });
+
+            // Node.js nonce check — single-use enforcement
+            const valid = await store.consume(result.nonce);
+            if (!valid) {
+                return res.status(401).json({ error: 'Invalid or expired nonce' });
+            }
+
+            req.user = { did: result.did };
+            return next();
         } catch (err) {
             console.error('[arken-auth] verify error:', err.message);
             return res.status(500).json({ error: 'Verification failed' });
@@ -87,4 +163,4 @@ function arkenAuth(options = {}) {
     };
 }
 
-module.exports = { arkenAuth, ArkenCore };
+module.exports = { arkenAuth, ArkenCore, MemoryNonceStore, RedisNonceStore };

@@ -143,12 +143,11 @@ fn parse_legacy_address_did(address_str: &str) -> Result<Address, ArkenAuthError
 
 // --- Signature Verification ---
 
-async fn verify_logic(auth_header: &str) -> Result<String, ArkenAuthError> {
+fn parse_auth_header(auth_header: &str) -> Result<(String, String, String), ArkenAuthError> {
     if !auth_header.starts_with("Signature ") {
         return Err(ArkenAuthError::InvalidHeaderFormat);
     }
 
-    // Parse Authorization header
     let parts: HashMap<&str, &str> = auth_header[10..].split(',')
         .filter_map(|s| {
             let mut split = s.trim().splitn(2, '=');
@@ -158,32 +157,49 @@ async fn verify_logic(auth_header: &str) -> Result<String, ArkenAuthError> {
         })
         .collect();
 
-    let did = *parts.get("did").ok_or(ArkenAuthError::MissingHeaderPart("did"))?;
-    let nonce = *parts.get("nonce").ok_or(ArkenAuthError::MissingHeaderPart("nonce"))?;
-    let signature_hex = *parts.get("signature").ok_or(ArkenAuthError::MissingHeaderPart("signature"))?;
+    let did = parts.get("did").ok_or(ArkenAuthError::MissingHeaderPart("did"))?.to_string();
+    let nonce = parts.get("nonce").ok_or(ArkenAuthError::MissingHeaderPart("nonce"))?.to_string();
+    let signature_hex = parts.get("signature").ok_or(ArkenAuthError::MissingHeaderPart("signature"))?.to_string();
 
-    // Validate nonce
-    if !validate_nonce(nonce) {
-        return Err(ArkenAuthError::InvalidNonce);
-    }
+    Ok((did, nonce, signature_hex))
+}
 
-    // Parse DID and extract public key address
+fn verify_signature(did: &str, nonce: &str, signature_hex: &str) -> Result<(), ArkenAuthError> {
     let expected_address = parse_did_key(did)?;
 
-    // Parse signature
     let sig: Signature = signature_hex.parse()
         .map_err(|_| ArkenAuthError::InvalidSignatureFormat)?;
-    
-    // Recover address from signature
+
     let recovered_address = sig.recover(nonce.as_bytes())
         .map_err(|_| ArkenAuthError::SignatureRecoveryError)?;
 
-    // Verify recovered address matches DID's address
     if to_checksum(&recovered_address, None) != to_checksum(&expected_address, None) {
         return Err(ArkenAuthError::SignatureMismatch);
     }
 
-    Ok(did.to_string())
+    Ok(())
+}
+
+async fn verify_logic(auth_header: &str) -> Result<String, ArkenAuthError> {
+    let (did, nonce, signature_hex) = parse_auth_header(auth_header)?;
+
+    // Validate nonce against internal store
+    if !validate_nonce(&nonce) {
+        return Err(ArkenAuthError::InvalidNonce);
+    }
+
+    verify_signature(&did, &nonce, &signature_hex)?;
+
+    Ok(did)
+}
+
+/// verify_signature_only: crypto verification without internal nonce check.
+/// Used when Node.js manages the nonce store (e.g. Redis adapter).
+/// Returns { status, did, nonce } on success so the caller can consume the nonce.
+async fn verify_signature_only_logic(auth_header: &str) -> Result<(String, String), ArkenAuthError> {
+    let (did, nonce, signature_hex) = parse_auth_header(auth_header)?;
+    verify_signature(&did, &nonce, &signature_hex)?;
+    Ok((did, nonce))
 }
 
 // --- FFI Layer ---
@@ -236,6 +252,36 @@ pub extern "C" fn verify_request_into(
 
     let response = match result {
         Ok(did) => json!({"status": "success", "did": did}),
+        Err(e) => json!({"status": "error", "message": e.to_string()}),
+    };
+
+    unsafe { write_to_buf(&response.to_string(), out, cap) }
+}
+
+/// Verify signature only — no internal nonce check.
+/// Returns { status, did, nonce } so Node.js can consume the nonce from its own store.
+#[no_mangle]
+pub extern "C" fn verify_signature_only_into(
+    auth_header_ptr: *const c_char,
+    out: *mut c_char,
+    cap: usize,
+) -> i32 {
+    let auth_header = match unsafe { CStr::from_ptr(auth_header_ptr).to_str() } {
+        Ok(s) => s,
+        Err(_) => {
+            let msg = json!({"status": "error", "message": "Invalid UTF-8 in header"}).to_string();
+            return unsafe { write_to_buf(&msg, out, cap) };
+        }
+    };
+
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(verify_signature_only_logic(auth_header));
+
+    let response = match result {
+        Ok((did, nonce)) => json!({"status": "success", "did": did, "nonce": nonce}),
         Err(e) => json!({"status": "error", "message": e.to_string()}),
     };
 
