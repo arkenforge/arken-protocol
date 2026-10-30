@@ -1,55 +1,30 @@
-# Arken Auth
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/arken-banner-dark.svg">
+    <img src=".github/assets/arken-banner-light.svg" alt="arken/auth — The server holds nothing." width="100%">
+  </picture>
+</p>
 
-**Passwordless authentication for web servers. No passwords. No sessions. Nothing to breach.**
+<p align="center">
+  Passwordless auth middleware for Express and FastAPI. No passwords, no sessions, no user database to breach.
+</p>
 
-[**Live Demo →**](https://arken-auth.fly.dev) · [npm](https://npmjs.com/package/arken-auth) · [PyPI](https://pypi.org/project/arken-auth)
+<p align="center">
+  <a href="https://www.npmjs.com/package/arken-auth"><img src="https://img.shields.io/npm/v/arken-auth.svg" alt="npm version"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/zacharybenson/arken-protocol/actions/workflows/release.yml"><img src="https://github.com/zacharybenson/arken-protocol/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+</p>
 
----
-
-## The problem
-
-Every auth system today asks your server to hold a secret — a password hash, a session token, an API key. That secret is a liability. It gets breached. It gets phished. It gets rotated on a schedule that nobody follows.
-
-Arken Auth flips the model: **the user holds the secret, the server holds nothing.**
-
----
-
-## How it works
-
-```
-Client                              Server
-  │                                   │
-  ├── GET /protected ────────────────▶│
-  │                                   │ (no auth header)
-  │◀── 401 { challenge: { nonce } } ──┤
-  │                                   │
-  │   sign(nonce, privateKey)         │
-  │                                   │
-  ├── GET /protected ────────────────▶│
-  │   Authorization: Signature        │
-  │     did="did:key:z...",           │
-  │     nonce="...",                  │
-  │     signature="0x..."             │
-  │                                   │ recover signer from sig
-  │                                   │ compare to DID pubkey
-  │◀── 200 { did: "did:key:z..." } ───┤
-```
-
-1. Client requests a protected resource — server issues a one-time nonce
-2. Client signs the nonce with their private key (never leaves their device)
-3. Client sends the signature + their DID back to the server
-4. Server recovers the signer address from the signature and checks it matches the DID
-5. No password ever transmitted. No session stored. No database touched.
-
-The cryptographic core is written in Rust and called via FFI from Node.js or Python.
+<p align="center">
+  <a href="#install">Install</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#status-and-limits">Limits</a> ·
+  <a href="#join-the-10-waitlist">Join the 1.0 waitlist</a>
+</p>
 
 ---
 
-## Quickstart — Node.js
-
-```bash
-npm install arken-auth
-```
+## Protect a route with one line of middleware
 
 ```js
 const express = require('express');
@@ -58,128 +33,251 @@ const { arkenAuth } = require('arken-auth');
 const app = express();
 
 app.get('/protected', arkenAuth(), (req, res) => {
-  res.json({ message: 'hello', did: req.user.did });
+  res.json({ did: req.user.did });
 });
 ```
 
-That's it. `arkenAuth()` handles the entire challenge-response cycle.
+An unsigned request gets a `401` back with a one-time nonce. The client signs the nonce with its private key and retries with an `Authorization: Signature` header. The middleware verifies the signature cryptographically and sets `req.user.did` — no database lookup, no session, nothing stored.
 
 ---
 
-## Quickstart — Python
+## Install
+
+```bash
+npm install arken-auth
+```
 
 ```bash
 pip install arken-auth
 ```
 
+> [!NOTE]
+> **Requires a Rust toolchain today.** The postinstall script compiles the native crypto library.
+> Install Rust from [rustup.rs](https://rustup.rs), then re-run the install.
+> **Prebuilt binaries ship with 1.0** — no Rust required after that.
+
+---
+
+## Quickstart
+
+<details>
+<summary><strong>Express (Node.js)</strong></summary>
+
+**Server**
+
+```js
+// server.js
+const express = require('express');
+const { arkenAuth } = require('arken-auth');
+
+const app = express();
+
+app.get('/protected', arkenAuth(), (req, res) => {
+  res.json({ message: 'Authenticated', did: req.user.did });
+});
+
+app.listen(3000);
+```
+
+Options:
+
+```js
+arkenAuth({
+  statement: 'Sign to access the API.' // shown to the user during signing; optional
+})
+```
+
+**Client**
+
+```js
+// client.js
+const { ethers } = require('ethers');
+const bs58 = require('bs58');
+
+function walletToDidKey(wallet) {
+  const signingKey = new ethers.utils.SigningKey(wallet.privateKey);
+  const keyBytes = Buffer.from(signingKey.compressedPublicKey.slice(2), 'hex');
+  const multicodecKey = Buffer.concat([Buffer.from([0xe7, 0x01]), keyBytes]);
+  return `did:key:z${bs58.encode(multicodecKey)}`;
+}
+
+async function authenticate(url) {
+  const wallet = ethers.Wallet.createRandom();
+  const did = walletToDidKey(wallet);
+
+  // 1. Get the challenge
+  const r1 = await fetch(url);
+  const { challenge } = await r1.json(); // 401
+  const { nonce } = challenge;
+
+  // 2. Sign the nonce
+  const signature = await wallet.signMessage(ethers.utils.toUtf8Bytes(nonce));
+
+  // 3. Send the signed header
+  const r2 = await fetch(url, {
+    headers: {
+      Authorization: `Signature did="${did}",nonce="${nonce}",signature="${signature}"`
+    }
+  });
+
+  return r2.json(); // { did: "did:key:zQ3s…" }
+}
+```
+
+</details>
+
+<details>
+<summary><strong>FastAPI (Python)</strong></summary>
+
+**Server**
+
 ```python
+# server.py
 from fastapi import FastAPI, Depends
+from fastapi.responses import JSONResponse
 from arken_auth import ArkenAuth
 
 app = FastAPI()
-arken = ArkenAuth()
 
 @app.get("/protected")
-async def protected(did: str = Depends(arken)):
-    return {"message": "hello", "did": did}
+async def protected(did: str = Depends(ArkenAuth())):
+    return {"message": "Authenticated", "did": did}
+
+# Return 401 challenge as JSON (FastAPI raises plain text by default)
+@app.exception_handler(401)
+async def auth_exception_handler(request, exc):
+    if hasattr(exc, "detail") and isinstance(exc.detail, dict):
+        return JSONResponse(
+            status_code=401,
+            content=exc.detail,
+            headers=getattr(exc, "headers", {}),
+        )
+    return JSONResponse(status_code=401, content={"detail": str(exc.detail)})
 ```
+
+Options:
+
+```python
+ArkenAuth(statement="Sign to access the API.")  # optional
+```
+
+The dependency returns the authenticated `did` string. On failure it raises `HTTPException(401)` with `{ "challenge": { "nonce": "…", "statement": "…" } }` as the body.
+
+</details>
 
 ---
 
-## Client-side (browser or CLI)
+## How it works
 
-Any client that can sign an Ethereum message works. In the browser with ethers.js:
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/arken-flow-dark.svg">
+    <img src=".github/assets/arken-flow-light.svg" alt="Challenge-response flow: GET → 401 with nonce → sign → GET with Authorization header → 200 with DID" width="100%">
+  </picture>
+</p>
 
-```js
-// Generate a DID from a wallet
-const wallet = ethers.Wallet.createRandom();
-const did = walletToDid(wallet); // did:key:z...
-
-// Step 1: get a challenge
-const r1 = await fetch('/protected');
-const { challenge: { nonce } } = await r1.json(); // 401
-
-// Step 2: sign the nonce
-const signature = await wallet.signMessage(ethers.utils.toUtf8Bytes(nonce));
-
-// Step 3: authenticate
-const r2 = await fetch('/protected', {
-  headers: {
-    Authorization: `Signature did="${did}",nonce="${nonce}",signature="${signature}"`
-  }
-});
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    C->>S: GET /protected
+    S-->>C: 401 { challenge: { nonce, statement } }
+    Note over C: sign(nonce, privateKey)
+    C->>S: GET /protected<br/>Authorization: Signature did="…",nonce="…",signature="…"
+    S-->>C: 200 { did: "did:key:zQ3s…" }
 ```
+
+**Challenge.** The server generates a random 32-character nonce, stores it in memory with a 60-second TTL, and returns it as JSON on `401`. Each nonce is single-use.
+
+**Proof.** The client signs the nonce with its secp256k1 private key using `eth_sign` (the Ethereum personal sign scheme). The private key never leaves the client.
+
+**Verify and forget.** The server uses ECDSA signature recovery (via [ethers-rs](https://github.com/gakonst/ethers-rs)) to derive the signer's address from the signature alone, then checks it matches the address encoded in the DID. No credentials are stored. The nonce is consumed.
 
 ---
 
-## What makes it different
+## Why Arken Auth
 
-|                        | Username/Password | JWT / OAuth | WebAuthn | **Arken Auth** |
-|------------------------|:-----------------:|:-----------:|:--------:|:--------------:|
-| Server stores secrets  | ✗ (hash)         | ✗ (secret)  | ✓        | **✓**          |
-| Works without accounts | ✗                | ✗           | ✗        | **✓**          |
-| Portable identity      | ✗                | ✗           | ✗        | **✓**          |
-| No JS SDK required     | ✓                | ✓           | ✗        | **✓**          |
-| Language agnostic      | ✓                | ✓           | ✓        | **✓**          |
-| Phishing resistant     | ✗                | ✗           | ✓        | **✓**          |
+| | What it means |
+|---|---|
+| **No passwords** | Nothing to phish, crack, or reuse across sites |
+| **No sessions** | No cookies, no JWTs, no server-side token store |
+| **No user database** | Nothing to breach; the server forgets after each request |
+| **No per-site accounts** | One key authenticates to any server running Arken Auth |
+| **No lock-in** | The DID format is a W3C open standard |
 
-The key difference from WebAuthn: your identity (`did:key:z...`) is **portable**. It travels with you across servers, apps, and devices. A WebAuthn credential is bound to a single origin. A DID is bound to nothing but your key.
-
----
-
-## Architecture
-
-```
-packages/
-  arken-auth/          Node.js middleware (Express)
-  arken-auth-py/       Python middleware (FastAPI)
-
-arken-phase1-docker/workspace/
-  rust-core/           Cryptographic engine (Rust)
-    src/lib.rs         Challenge generation + signature verification
-  node-wrapper/        Node.js FFI bindings (koffi)
-  python-wrapper/      Python FFI bindings (ctypes)
-  public/              Interactive demo UI
-```
-
-The Rust core exposes two functions over FFI:
-- `generate_challenge_into` — generates a random nonce, stores it server-side with a 60s TTL, returns JSON
-- `verify_request_into` — parses the auth header, validates the nonce, recovers the signer, checks against the DID
+<p align="right">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/arken-stone-dark.svg">
+    <img src=".github/assets/arken-stone-light.svg" alt="The Arken stone" width="240">
+  </picture>
+</p>
 
 ---
 
-## DID format
+## Identity: `did:key`
 
-Arken uses `did:key` with secp256k1 keys (multicodec `0xe7 0x01`), encoded as multibase base58btc (`z` prefix):
+Identity in Arken Auth is a [W3C DID Key](https://w3c-ccg.github.io/did-method-key/) identifier — a self-describing string derived from a public key:
 
 ```
-did:key:z[base58btc(0xe7 0x01 || compressed_pubkey)]
+did:key:zQ3shXgnkuyqVxf3NGBsK1q3J…
 ```
 
-This is the [W3C DID Key Method](https://w3c-ccg.github.io/did-method-key/) spec.
+The `z` prefix is the [multibase](https://github.com/multiformats/multibase) indicator for base58btc encoding. Inside is the [multicodec](https://github.com/multiformats/multicodec) prefix `0xe7 0x01` (secp256k1-pub) followed by the 33-byte compressed public key.
+
+> **Key type correction.** Earlier documentation showed `did:key:z6Mk…` which is the Ed25519 prefix. This project uses secp256k1 keys (`0xe7 0x01`), whose correct prefix is `zQ3s…`. The Rust verifier enforces this.
+
+This identity is **portable**: it is not bound to a domain, a server, or an account. A user with a `did:key` can authenticate to any server running Arken Auth without registering anywhere.
 
 ---
 
-## Requirements
+## Status and limits
 
-- **Rust** (for building the native library): `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- Node.js ≥ 18 (for the npm package)
-- Python ≥ 3.10 (for the pip package)
+- **Not production-ready.** This is an early-stage project.
+- **Nonces are in memory.** They do not survive restarts and will not work across multiple server instances without a shared store.
+- **No key recovery.** For services, plan for key rotation. Losing the private key means losing access.
+- **Rust toolchain required to install.** Prebuilt binaries are on the 1.0 roadmap.
+- **Aimed at APIs, developer tools, and server-to-server auth** — not consumer apps where key management is a burden.
 
 ---
 
-## Status
+## Roadmap to 1.0
 
-Phase 1 — working middleware for Express and FastAPI. The cryptographic core is complete and tested.
+- [ ] Prebuilt binaries (no Rust required to install)
+- [ ] Shared nonce store (Redis adapter)
+- [ ] Key rotation
+- [ ] `arken-client` package (wraps the two-step fetch automatically)
+- [ ] `did:web` and `did:pkh` support
+<!-- TODO: add any further roadmap items from open issues -->
 
-**What's next:**
-- Prebuilt binaries (no Rust required to install)
-- Session/token layer (optional, for stateful apps)
-- `did:web` and `did:pkh` support
-- Browser extension wallet
+---
+
+## Security and the Dragon Hunt
+
+See [SECURITY.md](SECURITY.md) for the reporting process and scope.
+
+Find a flaw, open a private advisory, and your name goes in the Hall of Finders.
+
+---
+
+## Join the 1.0 waitlist
+
+**Founding Builders** — everyone who joins before December 15, 2026 — are credited by name in the 1.0 README.
+
+There are **10 design-partner slots** for teams who want to shape the 1.0 API directly.
+
+<!-- TODO: replace with beehiiv URL when available -->
+[Join the waitlist](https://tally.so/r/kbbjWR)
+
+---
+
+## Contributing
+
+- Open an issue before starting significant work — alignment up front saves effort.
+- Run the existing tests before submitting a pull request.
+- Keep the core small: the crypto layer is intentionally minimal.
 
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE) — Arken Protocol
