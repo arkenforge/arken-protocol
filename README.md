@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://www.npmjs.com/package/@arkenforge/arken-auth"><img src="https://img.shields.io/npm/v/@arkenforge/arken-auth.svg" alt="npm version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <a href="https://github.com/zacharybenson/arken-protocol/actions/workflows/release.yml"><img src="https://github.com/zacharybenson/arken-protocol/actions/workflows/release.yml/badge.svg" alt="Release"></a>
+  <a href="https://github.com/ArkenForge/arken-protocol/actions/workflows/release.yml"><img src="https://github.com/ArkenForge/arken-protocol/actions/workflows/release.yml/badge.svg" alt="Release"></a>
 </p>
 
 <p align="center">
@@ -242,10 +242,10 @@ This identity is **portable**: it is not bound to a domain, a server, or an acco
 
 ## Roadmap to 1.0
 
-- [ ] Prebuilt binaries (no Rust required to install)
-- [ ] Shared nonce store (Redis adapter)
+- [x] Prebuilt binaries (no Rust required to install)
+- [x] Shared nonce store (Redis adapter)
 - [ ] Key rotation
-- [ ] `arken-client` package (wraps the two-step fetch automatically)
+- [x] `arken-client` package (wraps the two-step fetch automatically)
 - [ ] `did:web` and `did:pkh` support
 <!-- TODO: add any further roadmap items from open issues -->
 
