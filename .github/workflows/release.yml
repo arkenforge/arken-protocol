@@ -58,25 +58,25 @@ jobs:
       - name: Build (cross)
         if: matrix.use-cross
         run: cross build --release --target ${{ matrix.target }}
-        working-directory: packages/arken-auth/rust
+        working-directory: rust
 
       - name: Build (native)
         if: '!matrix.use-cross'
         run: cargo build --release --target ${{ matrix.target }}
-        working-directory: packages/arken-auth/rust
+        working-directory: rust
 
       - name: Copy binary into platform package
         shell: bash
         run: |
-          mkdir -p "packages/@arkenforge/arken-auth-${{ matrix.platform }}/bin"
-          cp "packages/arken-auth/rust/target/${{ matrix.target }}/release/${{ matrix.binary }}" \
-             "packages/@arkenforge/arken-auth-${{ matrix.platform }}/bin/"
+          mkdir -p "packages/@arkenforge/core-${{ matrix.platform }}/bin"
+          cp "rust/target/${{ matrix.target }}/release/${{ matrix.binary }}" \
+             "packages/@arkenforge/core-${{ matrix.platform }}/bin/"
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: binary-${{ matrix.platform }}
-          path: packages/@arkenforge/arken-auth-${{ matrix.platform }}/bin/
+          path: packages/@arkenforge/core-${{ matrix.platform }}/bin/
           retention-days: 1
 
   # ── Publish all packages to npm ───────────────────────────────────────────
@@ -101,8 +101,8 @@ jobs:
       - name: Place binaries into platform packages
         run: |
           for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
-            mkdir -p "packages/@arkenforge/arken-auth-${platform}/bin"
-            cp "artifacts/binary-${platform}/"* "packages/@arkenforge/arken-auth-${platform}/bin/"
+            mkdir -p "packages/@arkenforge/core-${platform}/bin"
+            cp "artifacts/binary-${platform}/"* "packages/@arkenforge/core-${platform}/bin/"
           done
 
       - name: Publish platform packages
@@ -110,14 +110,14 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           for platform in linux-x64 linux-arm64 darwin-x64 darwin-arm64 win32-x64; do
-            cd "packages/@arkenforge/arken-auth-${platform}"
+            cd "packages/@arkenforge/core-${platform}"
             npm publish --access public 2>&1 | tee /tmp/npm-out.txt || grep -q "cannot publish over" /tmp/npm-out.txt || exit 1
             cd ../../..
           done
 
-      - name: Publish main package
+      - name: Publish @arkenforge/core
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          cd packages/arken-auth
+          cd packages/@arkenforge/core
           npm publish --access public 2>&1 | tee /tmp/npm-out.txt || grep -q "cannot publish over" /tmp/npm-out.txt || exit 1
