@@ -1,11 +1,11 @@
 {
-  "name": "arken-auth-linux-arm64",
+  "name": "@arkenauth/arken-auth-win32-x64",
   "version": "0.1.0",
-  "description": "Prebuilt linux-arm64 binary for arken-auth",
+  "description": "Prebuilt win32-x64 binary for arken-auth",
   "main": "index.js",
   "files": ["bin/", "index.js"],
-  "os": ["linux"],
-  "cpu": ["arm64"],
+  "os": ["win32"],
+  "cpu": ["x64"],
   "license": "MIT",
   "author": "Arken Protocol",
   "repository": {

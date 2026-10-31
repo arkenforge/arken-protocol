@@ -1,11 +1,11 @@
 {
-  "name": "arken-auth-darwin-arm64",
+  "name": "@arkenauth/arken-auth-linux-x64",
   "version": "0.1.0",
-  "description": "Prebuilt darwin-arm64 binary for arken-auth",
+  "description": "Prebuilt linux-x64 binary for arken-auth",
   "main": "index.js",
   "files": ["bin/", "index.js"],
-  "os": ["darwin"],
-  "cpu": ["arm64"],
+  "os": ["linux"],
+  "cpu": ["x64"],
   "license": "MIT",
   "author": "Arken Protocol",
   "repository": {

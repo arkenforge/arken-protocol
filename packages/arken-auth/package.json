@@ -21,11 +21,11 @@
     "koffi": "^2.9.0"
   },
   "optionalDependencies": {
-    "arken-auth-linux-x64": "0.1.0",
-    "arken-auth-linux-arm64": "0.1.0",
-    "arken-auth-darwin-x64": "0.1.0",
-    "arken-auth-darwin-arm64": "0.1.0",
-    "arken-auth-win32-x64": "0.1.0"
+    "@arkenauth/arken-auth-linux-x64": "0.1.0",
+    "@arkenauth/arken-auth-linux-arm64": "0.1.0",
+    "@arkenauth/arken-auth-darwin-x64": "0.1.0",
+    "@arkenauth/arken-auth-darwin-arm64": "0.1.0",
+    "@arkenauth/arken-auth-win32-x64": "0.1.0"
   },
   "peerDependencies": {
     "express": ">=4.0.0"
