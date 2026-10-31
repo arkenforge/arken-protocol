@@ -3,7 +3,7 @@
     "id": "arken-example-mcp",
     "name": "Arken Example MCP Server",
     "description": "Reference MCP server demonstrating arken-auth integration.",
-    "url": "https://github.com/ArkenAuth/arken-protocol/tree/main/examples/mcp",
+    "url": "https://github.com/ArkenForge/arken-protocol/tree/main/examples/mcp",
     "type": "mcp",
     "auth": "arken-auth",
     "tools": ["echo", "time"],

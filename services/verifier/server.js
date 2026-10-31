@@ -18,7 +18,7 @@
 
 const crypto = require('crypto');
 const express = require('express');
-const { ArkenCore, MemoryNonceStore, RedisNonceStore } = require('arken-auth');
+const { ArkenCore, MemoryNonceStore, RedisNonceStore } = require('@arkenforge/arken-auth');
 
 const app = express();
 app.use(express.json());

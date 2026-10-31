@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { arkenAuth } = require('arken-auth');
+const { arkenAuth } = require('@arkenforge/arken-auth');
 
 const app = express();
 

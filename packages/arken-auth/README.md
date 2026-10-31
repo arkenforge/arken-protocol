@@ -7,14 +7,14 @@ Zero-storage authentication middleware for Express. No passwords. No sessions. N
 Requires [Rust](https://rustup.rs) — used once to compile the native crypto core.
 
 ```bash
-npm install arken-auth
+npm install @arkenforge/arken-auth
 ```
 
 ## Usage
 
 ```javascript
 const express = require('express');
-const { arkenAuth } = require('arken-auth');
+const { arkenAuth } = require('@arkenforge/arken-auth');
 
 const app = express();
 

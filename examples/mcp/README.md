@@ -48,7 +48,7 @@ For deployments behind a load balancer, pass a Redis client to `arkenAuth`:
 
 ```js
 const { createClient: redisClient } = require('redis');
-const { arkenAuth, RedisNonceStore } = require('arken-auth');
+const { arkenAuth, RedisNonceStore } = require('@arkenforge/arken-auth');
 
 const redis = redisClient({ url: process.env.REDIS_URL });
 await redis.connect();

@@ -12,7 +12,7 @@ const BUF_SIZE = 65536;
 // ---------------------------------------------------------------------------
 
 function getLibPath() {
-    const pkgName = `@arkenauth/arken-auth-${os.platform()}-${os.arch()}`;
+    const pkgName = `@arkenforge/arken-auth-${os.platform()}-${os.arch()}`;
     try {
         return require(pkgName);
     } catch (_) {}

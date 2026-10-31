@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/arken-auth"><img src="https://img.shields.io/npm/v/arken-auth.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/@arkenforge/arken-auth"><img src="https://img.shields.io/npm/v/@arkenforge/arken-auth.svg" alt="npm version"></a>
   <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
   <a href="https://github.com/zacharybenson/arken-protocol/actions/workflows/release.yml"><img src="https://github.com/zacharybenson/arken-protocol/actions/workflows/release.yml/badge.svg" alt="Release"></a>
 </p>
@@ -28,7 +28,7 @@
 
 ```js
 const express = require('express');
-const { arkenAuth } = require('arken-auth');
+const { arkenAuth } = require('@arkenforge/arken-auth');
 
 const app = express();
 
@@ -44,7 +44,7 @@ An unsigned request gets a `401` back with a one-time nonce. The client signs th
 ## Install
 
 ```bash
-npm install arken-auth
+npm install @arkenforge/arken-auth
 ```
 
 ```bash
@@ -68,7 +68,7 @@ pip install arken-auth
 ```js
 // server.js
 const express = require('express');
-const { arkenAuth } = require('arken-auth');
+const { arkenAuth } = require('@arkenforge/arken-auth');
 
 const app = express();
 

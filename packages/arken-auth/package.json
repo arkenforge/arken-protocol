@@ -1,5 +1,5 @@
 {
-  "name": "arken-auth",
+  "name": "@arkenforge/arken-auth",
   "version": "0.2.0",
   "description": "Zero-storage authentication middleware. No passwords. No sessions. Nothing to breach.",
   "main": "index.js",
@@ -11,21 +11,24 @@
   "author": "Arken Protocol",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ArkenAuth/arken-protocol"
+    "url": "https://github.com/ArkenForge/arken-protocol"
   },
   "bugs": {
-    "url": "https://github.com/arken-protocol/arken-auth/issues"
+    "url": "https://github.com/ArkenForge/arken-protocol/issues"
   },
-  "homepage": "https://arken-auth.fly.dev",
+  "homepage": "https://github.com/ArkenForge/arken-protocol#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "dependencies": {
     "koffi": "^2.9.0"
   },
   "optionalDependencies": {
-    "@arkenauth/arken-auth-linux-x64": "0.1.0",
-    "@arkenauth/arken-auth-linux-arm64": "0.1.0",
-    "@arkenauth/arken-auth-darwin-x64": "0.1.0",
-    "@arkenauth/arken-auth-darwin-arm64": "0.1.0",
-    "@arkenauth/arken-auth-win32-x64": "0.1.0"
+    "@arkenforge/arken-auth-linux-x64": "0.1.0",
+    "@arkenforge/arken-auth-linux-arm64": "0.1.0",
+    "@arkenforge/arken-auth-darwin-x64": "0.1.0",
+    "@arkenforge/arken-auth-darwin-arm64": "0.1.0",
+    "@arkenforge/arken-auth-win32-x64": "0.1.0"
   },
   "peerDependencies": {
     "express": ">=4.0.0"
