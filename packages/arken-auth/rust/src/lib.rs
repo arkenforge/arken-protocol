@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::sync::Mutex;
 use std::time::{SystemTime, Duration};
 use libc::c_char;
@@ -41,7 +41,17 @@ enum ArkenAuthError {
     SignatureMismatch,
 }
 
+// --- Global tokio runtime — created once, reused on every FFI call ---
+lazy_static! {
+    static ref RT: tokio::runtime::Runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("Failed to build tokio runtime");
+}
+
 // --- Thread-Safe Nonce Store ---
+// Used only by the legacy verify_request_into flow.
+// The new verify_signature_only_into flow manages nonces externally (Node.js/Python).
 lazy_static! {
     static ref NONCE_STORE: Mutex<HashMap<String, SystemTime>> = Mutex::new(HashMap::new());
 }
@@ -52,9 +62,14 @@ fn add_nonce() -> String {
         .take(32)
         .map(char::from)
         .collect();
-    
+
     let mut store = NONCE_STORE.lock().expect("Nonce store mutex poisoned");
-    store.insert(nonce.clone(), SystemTime::now());
+    // Sweep expired nonces on every insert so the store stays bounded.
+    // This matters when generate_challenge_into is called but verify_request_into never is
+    // (e.g. when the caller uses the external-nonce flow via verify_signature_only_into).
+    let now = SystemTime::now();
+    store.retain(|_, ts| now.duration_since(*ts).unwrap_or_default() < Duration::from_secs(60));
+    store.insert(nonce.clone(), now);
     nonce
 }
 
@@ -244,11 +259,7 @@ pub extern "C" fn verify_request_into(
         }
     };
 
-    let result = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(verify_logic(auth_header));
+    let result = RT.block_on(verify_logic(auth_header));
 
     let response = match result {
         Ok(did) => json!({"status": "success", "did": did}),
@@ -274,11 +285,7 @@ pub extern "C" fn verify_signature_only_into(
         }
     };
 
-    let result = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(verify_signature_only_logic(auth_header));
+    let result = RT.block_on(verify_signature_only_logic(auth_header));
 
     let response = match result {
         Ok((did, nonce)) => json!({"status": "success", "did": did, "nonce": nonce}),

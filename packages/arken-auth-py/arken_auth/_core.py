@@ -1,4 +1,3 @@
-import asyncio
 import ctypes
 import json
 import os
@@ -65,11 +64,10 @@ class RedisNonceStore:
 
     async def consume(self, nonce: str) -> bool:
         key = f"arken:nonce:{nonce}"
-        val = await self._client.get(key)
-        if val is None:
-            return False
-        await self._client.delete(key)
-        return True
+        # getdel is atomic — get and delete in one round trip (Redis 6.2+).
+        # Prevents a race where two concurrent requests both pass the nonce check.
+        val = await self._client.getdel(key)
+        return val is not None
 
 
 # ---------------------------------------------------------------------------

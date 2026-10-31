@@ -19,8 +19,20 @@ const crypto = require('crypto');
 const app = express();
 app.use(express.json());
 
-const REGISTRY_FILE = path.join(__dirname, 'registry.json');
-const PENDING_FILE  = path.join(__dirname, 'pending.json');
+// DATA_DIR defaults to the service directory.
+// In production (Fly.io), mount a persistent volume and set DATA_DIR to its path
+// so pending.json survives container restarts.
+// e.g. fly volumes create arken_registry_data --size 1 --region iad
+//      [mounts] source = "arken_registry_data", destination = "/data"
+//      DATA_DIR=/data
+const DATA_DIR = process.env.DATA_DIR ?? __dirname;
+
+const REGISTRY_FILE = path.join(__dirname, 'registry.json');   // shipped with code — read-only
+const PENDING_FILE  = path.join(DATA_DIR, 'pending.json');     // written at runtime — needs persistence
+
+if (!process.env.DATA_DIR) {
+    console.warn('[registry] WARNING: DATA_DIR not set. pending.json will be lost on container restart. Set DATA_DIR to a persistent volume path.');
+}
 
 function loadRegistry() {
     return JSON.parse(fs.readFileSync(REGISTRY_FILE, 'utf8'));

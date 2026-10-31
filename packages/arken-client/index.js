@@ -44,7 +44,8 @@ function createClient(privateKey) {
      * - Returns the final Response (either the 200 or a non-401 error).
      */
     async function fetch(url, options = {}) {
-        const fetchFn = globalThis.fetch ?? require('node-fetch');
+        // globalThis.fetch is available in Node.js 18+ (required by engines field).
+        const fetchFn = globalThis.fetch;
 
         const r1 = await fetchFn(url, options);
 
@@ -66,8 +67,8 @@ function createClient(privateKey) {
             ...options,
             headers: {
                 ...(options.headers ?? {}),
-                Authorization: `Signature did="${did}",nonce="${nonce}",signature="${signature}"`
-            }
+                Authorization: `Signature did="${did}",nonce="${nonce}",signature="${signature}"`,
+            },
         });
     }
 

@@ -13,6 +13,8 @@ keywords = ["arken", "did", "authentication", "a401", "agent"]
 dependencies = [
     "httpx>=0.25.0",
     "eth-account>=0.10.0",
+    "eth-keys>=0.4.0",
+    "base58>=2.1.0",
 ]
 
 [project.optional-dependencies]

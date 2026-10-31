@@ -109,10 +109,10 @@ class RedisNonceStore {
 
     async consume(nonce) {
         const key = `arken:nonce:${nonce}`;
-        const val = await this._client.get(key);
-        if (!val) return false;
-        await this._client.del(key);
-        return true;
+        // getDel is atomic — get and delete in one round trip (Redis 6.2+).
+        // Prevents a race where two concurrent requests both pass the nonce check.
+        const val = await this._client.getDel(key);
+        return val !== null;
     }
 }
 

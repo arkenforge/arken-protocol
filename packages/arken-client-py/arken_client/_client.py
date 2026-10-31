@@ -10,17 +10,18 @@ Usage:
     client = create_client(private_key)    # reuse existing key
 
     response = await client.fetch("https://api.example.com/protected")
-    print(client.did)        # did:key:zQ3s...
+    print(client.did)            # did:key:zQ3s...
     print(client.private_key_hex)
 """
 
-import os
 import secrets
 from typing import Optional
 
+import base58
 import httpx
 from eth_account import Account
 from eth_account.messages import encode_defunct
+from eth_keys import keys as eth_keys
 
 
 # ---------------------------------------------------------------------------
@@ -29,13 +30,7 @@ from eth_account.messages import encode_defunct
 
 def _private_key_to_did(private_key_bytes: bytes) -> str:
     """Derive a did:key:zQ3s... identifier from a secp256k1 private key."""
-    import base58
-
-    account = Account.from_key(private_key_bytes)
-
-    # Get compressed public key (33 bytes)
-    from eth_keys import keys
-    pk = keys.PrivateKey(private_key_bytes)
+    pk = eth_keys.PrivateKey(private_key_bytes)
     compressed = pk.public_key.to_compressed_bytes()
 
     # Multicodec prefix for secp256k1-pub: 0xe7 0x01
@@ -113,10 +108,12 @@ class ArkenClient:
             signature = self._sign_nonce(nonce)
             auth_header = f'Signature did="{self.did}",nonce="{nonce}",signature="{signature}"'
 
-            headers = dict(kwargs.pop("headers", {}) or {})
-            headers["Authorization"] = auth_header
+            # Build new headers without mutating the caller's kwargs dict
+            existing_headers = kwargs.get("headers") or {}
+            merged_headers = {**existing_headers, "Authorization": auth_header}
+            retry_kwargs = {k: v for k, v in kwargs.items() if k != "headers"}
 
-            return await client.request(method, url, headers=headers, **kwargs)
+            return await client.request(method, url, headers=merged_headers, **retry_kwargs)
 
         finally:
             if own_client:
@@ -140,7 +137,7 @@ def create_client(private_key: Optional[str] = None) -> ArkenClient:
 
     Example:
         client = create_client()
-        print(client.did)           # did:key:zQ3s...
+        print(client.did)               # did:key:zQ3s...
         print(client.private_key_hex)   # persist this
 
         response = await client.fetch("https://api.example.com/protected")
