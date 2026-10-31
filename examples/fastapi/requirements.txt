@@ -1,2 +1,0 @@
-arken-auth @ file://../../packages/arken-auth-py
-uvicorn>=0.24.0
