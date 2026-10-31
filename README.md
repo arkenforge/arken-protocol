@@ -1,12 +1,12 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/arken-banner-dark.svg">
-    <img src=".github/assets/arken-banner-light.svg" alt="arken/auth — The server holds nothing." width="100%">
+    <img src=".github/assets/arken-banner-light.svg" alt="ArkenForge — Identity infrastructure for AI agents." width="100%">
   </picture>
 </p>
 
 <p align="center">
-  Passwordless auth middleware for Express and FastAPI. No passwords, no sessions, no user database to breach.
+  Cryptographic identity for AI agents. No API keys, no passwords, no user database to breach.
 </p>
 
 <p align="center">
@@ -195,14 +195,14 @@ sequenceDiagram
 
 ---
 
-## Why Arken Auth
+## Why Arken
 
 | | What it means |
 |---|---|
 | **No passwords** | Nothing to phish, crack, or reuse across sites |
 | **No sessions** | No cookies, no JWTs, no server-side token store |
 | **No user database** | Nothing to breach; the server forgets after each request |
-| **No per-site accounts** | One key authenticates to any server running Arken Auth |
+| **No per-site accounts** | One key authenticates to any server running Arken |
 | **No lock-in** | The DID format is a W3C open standard |
 
 <p align="right">
@@ -216,7 +216,7 @@ sequenceDiagram
 
 ## Identity: `did:key`
 
-Identity in Arken Auth is a [W3C DID Key](https://w3c-ccg.github.io/did-method-key/) identifier — a self-describing string derived from a public key:
+Identity in Arken is a [W3C DID Key](https://w3c-ccg.github.io/did-method-key/) identifier — a self-describing string derived from a public key:
 
 ```
 did:key:zQ3shXgnkuyqVxf3NGBsK1q3J…
@@ -226,7 +226,7 @@ The `z` prefix is the [multibase](https://github.com/multiformats/multibase) ind
 
 > **Key type correction.** Earlier documentation showed `did:key:z6Mk…` which is the Ed25519 prefix. This project uses secp256k1 keys (`0xe7 0x01`), whose correct prefix is `zQ3s…`. The Rust verifier enforces this.
 
-This identity is **portable**: it is not bound to a domain, a server, or an account. A user with a `did:key` can authenticate to any server running Arken Auth without registering anywhere.
+This identity is **portable**: it is not bound to a domain, a server, or an account. An agent with a `did:key` can authenticate to any server running Arken without registering anywhere.
 
 ---
 
@@ -280,4 +280,4 @@ There are **10 design-partner slots** for teams who want to shape the 1.0 API di
 
 ## License
 
-[MIT](LICENSE) — Arken Protocol
+[MIT](LICENSE) — ArkenForge
