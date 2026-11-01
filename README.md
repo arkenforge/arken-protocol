@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://opensource.org/licenses/Apache-2.0"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
   <a href="https://github.com/ArkenForge/arken-core/actions/workflows/release.yml"><img src="https://github.com/ArkenForge/arken-core/actions/workflows/release.yml/badge.svg" alt="Release"></a>
 </p>
 
@@ -102,4 +102,4 @@ See [SECURITY.md](SECURITY.md). Find a flaw, open a private advisory, and your n
 
 ## License
 
-[MIT](LICENSE) — ArkenForge
+[Apache 2.0](LICENSE) — ArkenForge
