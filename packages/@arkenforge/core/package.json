@@ -4,7 +4,7 @@
   "description": "Cryptographic core for ArkenForge — ECDSA verification, did:key identity, nonce store.",
   "main": "index.js",
   "keywords": ["arken", "did", "did:key", "secp256k1", "ecdsa", "authentication", "identity"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "ArkenForge",
   "repository": {
     "type": "git",

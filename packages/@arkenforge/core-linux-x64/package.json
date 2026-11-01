@@ -6,7 +6,7 @@
   "files": ["bin/", "index.js"],
   "os": ["linux"],
   "cpu": ["x64"],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "author": "Arken Protocol",
   "repository": {
     "type": "git",
